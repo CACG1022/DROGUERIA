@@ -9,16 +9,21 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase.js"></script>
 
+  <!-- SheetJS -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <style>
     body { font-family: system-ui; background:#f4f6f8; padding:20px; }
     h1 { margin-top:0; }
     .card { background:white; padding:20px; border-radius:12px; margin-bottom:20px; }
-    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:12px; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap:12px; }
     input { padding:10px; }
     button { padding:10px; background:#111; color:white; border:none; border-radius:8px; cursor:pointer; }
+    button.red { background:#b00020; }
     table { width:100%; border-collapse: collapse; margin-top:10px; }
     th, td { border-bottom:1px solid #eee; padding:8px; text-align:left; }
     th { font-size:12px; color:#555; }
+    .muted { font-size:12px; color:#777; }
   </style>
 </head>
 <body>
@@ -38,12 +43,33 @@
     <input id="descripcion" placeholder="Descripción">
     <input id="costo" type="number" placeholder="Costo">
     <input id="precio" type="number" placeholder="Precio base">
-    <input id="precio10" placeholder="Precio 10 días" disabled>
-    <input id="precio20" placeholder="Precio 20 días" disabled>
+
+    <input id="dias1" type="number" placeholder="Días opción 1 (ej: 10)">
+    <input id="dias2" type="number" placeholder="Días opción 2 (ej: 20)">
+
+    <input id="precio1" placeholder="Precio opción 1" disabled>
+    <input id="precio2" placeholder="Precio opción 2" disabled>
   </div>
 
-  <br>
-  <button onclick="guardar()">Guardar</button>
+  <p class="muted">
+    El precio se calcula así: <b>precio × (1 + días / 100)</b>
+  </p>
+
+  <div class="grid">
+    <button onclick="guardar()">Guardar</button>
+    <button class="red" onclick="eliminar()">Eliminar</button>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Actualizar por Excel</h3>
+
+  <input type="file" id="excelFile" accept=".xlsx,.xls">
+  <br><br>
+  <button onclick="importExcel()">Importar / Actualizar</button>
+  <button onclick="downloadTemplate()">Descargar plantilla</button>
+
+  <div id="excelMsg" class="muted"></div>
 </div>
 
 <div class="card">
@@ -54,8 +80,8 @@
         <th>Código</th>
         <th>Descripción</th>
         <th>Precio</th>
-        <th>10 días</th>
-        <th>20 días</th>
+        <th>Opción 1</th>
+        <th>Opción 2</th>
         <th></th>
       </tr>
     </thead>
@@ -64,22 +90,29 @@
 </div>
 
 <script>
-function calcular() {
+function recalcular() {
   const p = Number(precio.value || 0);
-  precio10.value = (p * 1.10).toFixed(2);
-  precio20.value = (p * 1.20).toFixed(2);
+  const d1 = Number(dias1.value || 0);
+  const d2 = Number(dias2.value || 0);
+
+  precio1.value = (p * (1 + d1 / 100)).toFixed(2);
+  precio2.value = (p * (1 + d2 / 100)).toFixed(2);
 }
-precio.addEventListener("input", calcular);
+
+precio.addEventListener("input", recalcular);
+dias1.addEventListener("input", recalcular);
+dias2.addEventListener("input", recalcular);
 
 async function cargar() {
   const { data } = await sb.from("medicamentos").select("*").order("descripcion");
+
   lista.innerHTML = data.map(m => `
     <tr>
       <td>${m.codigo}</td>
       <td>${m.descripcion}</td>
-      <td>${m.precio}</td>
-      <td>${m.precio_10_dias}</td>
-      <td>${m.precio_20_dias}</td>
+      <td>$${m.precio}</td>
+      <td>${m.dias_opcion_1} días → $${m.precio_10_dias}</td>
+      <td>${m.dias_opcion_2} días → $${m.precio_20_dias}</td>
       <td><button onclick='editar(${JSON.stringify(m)})'>Editar</button></td>
     </tr>
   `).join("");
@@ -92,7 +125,11 @@ function editar(m) {
   descripcion.value = m.descripcion;
   costo.value = m.costo;
   precio.value = m.precio;
-  calcular();
+
+  dias1.value = m.dias_opcion_1 || 10;
+  dias2.value = m.dias_opcion_2 || 20;
+
+  recalcular();
 }
 
 async function guardar() {
@@ -102,8 +139,10 @@ async function guardar() {
     descripcion: descripcion.value,
     costo: Number(costo.value),
     precio: Number(precio.value),
-    precio_10_dias: Number(precio10.value),
-    precio_20_dias: Number(precio20.value)
+    dias_opcion_1: Number(dias1.value),
+    dias_opcion_2: Number(dias2.value),
+    precio_10_dias: Number(precio1.value),
+    precio_20_dias: Number(precio2.value)
   };
 
   let r;
@@ -114,11 +153,68 @@ async function guardar() {
 
   if (r.error) alert(r.error.message);
   else {
-    id.value = "";
-    referencia.value = codigo.value = descripcion.value = costo.value = precio.value = "";
-    precio10.value = precio20.value = "";
+    limpiar();
     cargar();
   }
+}
+
+async function eliminar() {
+  if (!id.value) return;
+  if (!confirm("¿Eliminar este producto?")) return;
+
+  await sb.from("medicamentos").delete().eq("id", id.value);
+  limpiar();
+  cargar();
+}
+
+function limpiar() {
+  id.value = referencia.value = codigo.value = descripcion.value = costo.value = precio.value = "";
+  dias1.value = 10;
+  dias2.value = 20;
+  precio1.value = precio2.value = "";
+}
+
+function downloadTemplate() {
+  const ws = XLSX.utils.json_to_sheet([
+    { codigo:"7701234567890", referencia:"REF-001", descripcion:"Ejemplo", costo:1000, precio:1500 }
+  ]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "medicamentos");
+  XLSX.writeFile(wb, "plantilla_medicamentos.xlsx");
+}
+
+async function importExcel() {
+  const file = excelFile.files[0];
+  if (!file) return alert("Selecciona un archivo");
+
+  const data = XLSX.utils.sheet_to_json(
+    XLSX.read(await file.arrayBuffer(), {type:"array"}).Sheets["medicamentos"]
+  );
+
+  let ok = 0;
+  for (const r of data) {
+    const precio = Number(r.precio || 0);
+    const d1 = Number(r.dias1 || 10);
+    const d2 = Number(r.dias2 || 20);
+
+    const payload = {
+      codigo: r.codigo,
+      referencia: r.referencia,
+      descripcion: r.descripcion,
+      costo: r.costo,
+      precio,
+      dias_opcion_1: d1,
+      dias_opcion_2: d2,
+      precio_10_dias: precio * (1 + d1/100),
+      precio_20_dias: precio * (1 + d2/100)
+    };
+
+    const { error } = await sb.from("medicamentos").upsert(payload, { onConflict:"codigo" });
+    if (!error) ok++;
+  }
+
+  excelMsg.textContent = `Importación finalizada. OK: ${ok}`;
+  cargar();
 }
 
 cargar();
@@ -126,3 +222,4 @@ cargar();
 
 </body>
 </html>
+
