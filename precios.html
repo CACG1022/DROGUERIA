@@ -25,6 +25,14 @@ table { width:100%; border-collapse:collapse; }
 th,td { border-bottom:1px solid #eee; padding:8px; text-align:left; }
 th { font-size:12px; color:#555; }
 .muted { font-size:12px; color:#777; }
+
+<style>
+label {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: block;
+}
 </style>
 </head>
 <body>
@@ -34,15 +42,38 @@ th { font-size:12px; color:#555; }
 
 <!-- CONFIGURACIÓN GLOBAL -->
 <div class="card">
-<h3>Configuración global de plazos</h3>
+  <h3>Configuración global de plazos</h3>
 
-<div class="grid">
-  <input id="gDias1" type="number" value="10" placeholder="Días plazo 1">
-  <input id="gPorc1" type="number" value="10" placeholder="% plazo 1">
+  <div class="grid">
+    <div>
+      <label>Días plazo 1</label>
+      <input id="gDias1" type="number" value="10">
+    </div>
 
-  <input id="gDias2" type="number" value="20" placeholder="Días plazo 2">
-  <input id="gPorc2" type="number" value="20" placeholder="% plazo 2">
+    <div>
+      <label>% plazo 1</label>
+      <input id="gPorc1" type="text" value="10%">
+    </div>
+
+    <div>
+      <label>Días plazo 2</label>
+      <input id="gDias2" type="number" value="20">
+    </div>
+
+    <div>
+      <label>% plazo 2</label>
+      <input id="gPorc2" type="text" value="20%">
+    </div>
+  </div>
+
+  <br>
+  <button class="gray" onclick="actualizarTodos()">Actualizar todos los precios</button>
+
+  <p class="muted">
+    Precio = Precio base × (1 + porcentaje / 100)
+  </p>
 </div>
+
 
 <br>
 <button class="gray" onclick="actualizarTodos()">Actualizar todos los precios</button>
@@ -107,8 +138,8 @@ function calc(precio, porc){ return +(precio * (1 + porc/100)).toFixed(2); }
 
 function recalcular() {
   const base = Number(precio.value||0);
-  p1.value = calc(base, Number(gPorc1.value));
-  p2.value = calc(base, Number(gPorc2.value));
+  p1.value = calc(base, getPorcentaje("gPorc1"));
+  p2.value = calc(base, getPorcentaje("gPorc2"));
 }
 
 precio.addEventListener("input", recalcular);
@@ -154,12 +185,12 @@ async function guardar(){
     precio:base,
 
     dias_plazo_1:Number(gDias1.value),
-    porc_plazo_1:Number(gPorc1.value),
-    precio_10_dias:calc(base,Number(gPorc1.value)),
+    porc_plazo_1:getPorcentaje("gPorc1"),
+    precio_10_dias:calc(base,getPorcentaje("gPorc1")),
 
     dias_plazo_2:Number(gDias2.value),
-    porc_plazo_2:Number(gPorc2.value),
-    precio_20_dias:calc(base,Number(gPorc2.value))
+    porc_plazo_2:getPorcentaje("gPorc2"),
+    precio_20_dias:calc(base,getPorcentaje("gPorc2"))
   };
 
   let r=id.value
@@ -178,11 +209,11 @@ async function actualizarTodos(){
     const base=m.precio;
     await sb.from("medicamentos").update({
       dias_plazo_1:Number(gDias1.value),
-      porc_plazo_1:Number(gPorc1.value),
-      precio_10_dias:calc(base,Number(gPorc1.value)),
+      porc_plazo_1:getPorcentaje("gPorc1"),
+      precio_10_dias:calc(base,getPorcentaje("gPorc1")),
       dias_plazo_2:Number(gDias2.value),
-      porc_plazo_2:Number(gPorc2.value),
-      precio_20_dias:calc(base,Number(gPorc2.value))
+      porc_plazo_2:getPorcentaje("gPorc2"),
+      precio_20_dias:calc(base,getPorcentaje("gPorc2"))
     }).eq("id",m.id);
   }
   alert("Precios actualizados");
@@ -215,11 +246,11 @@ async function importExcel(){
       descripcion:r.descripcion,
       precio:base,
       dias_plazo_1:Number(gDias1.value),
-      porc_plazo_1:Number(gPorc1.value),
-      precio_10_dias:calc(base,Number(gPorc1.value)),
+      porc_plazo_1:getPorcentaje("gPorc1"),
+      precio_10_dias:calc(base,getPorcentaje("gPorc1")),
       dias_plazo_2:Number(gDias2.value),
-      porc_plazo_2:Number(gPorc2.value),
-      precio_20_dias:calc(base,Number(gPorc2.value))
+      porc_plazo_2:getPorcentaje("gPorc2"),
+      precio_20_dias:calc(base,getPorcentaje("gPorc2"))
     },{onConflict:"codigo"});
   }
   excelMsg.textContent="Importación finalizada";
@@ -227,6 +258,12 @@ async function importExcel(){
 }
 
 cargar();
+function getPorcentaje(inputId) {
+  const v = document.getElementById(inputId).value
+    .replace('%','')
+    .trim();
+  return Number(v || 0);
+}
 </script>
 
 </body>
