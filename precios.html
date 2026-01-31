@@ -9,32 +9,40 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase.js"></script>
 
-<!-- SheetJS -->
+<!-- SheetJS (Excel) -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
   body { font-family: system-ui; background:#f4f6f8; padding:20px; }
   h1 { margin-top:0; }
+
   .card { background:#fff; padding:20px; border-radius:12px; margin-bottom:20px; }
   .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
-  input { padding:10px; }
-  button { padding:10px; border:none; border-radius:8px; cursor:pointer; background:#111; color:#fff; }
+
+  input, select, textarea { padding:10px; border:1px solid #ddd; border-radius:10px; outline:none; }
+  input:focus, select:focus, textarea:focus { border-color:#bbb; }
+
+  button { padding:10px 12px; border:none; border-radius:10px; cursor:pointer; background:#111; color:#fff; }
   button.red { background:#b00020; }
   button.gray { background:#555; }
   button.outline { background:#fff; color:#111; border:1px solid #ddd; }
+
   table { width:100%; border-collapse:collapse; }
   th,td { border-bottom:1px solid #eee; padding:10px 8px; text-align:left; vertical-align: top; }
   th { font-size:12px; color:#555; }
+
   .muted { font-size:12px; color:#777; }
   label { font-size: 12px; font-weight: 600; margin-bottom: 4px; display: block; color:#333; }
-  .row-actions { display:flex; gap:8px; justify-content:flex-end; }
+
+  .row-actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
   .top-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
   .top-actions button { width:auto; }
   .hint { margin-top:8px; }
+  .pill { display:inline-block; padding:4px 8px; border:1px solid #eee; border-radius:999px; font-size:12px; background:#fafafa; }
 </style>
 </head>
-<body>
 
+<body>
 <a href="index.html">⬅ Volver</a>
 <h1>Gestión de precios</h1>
 
@@ -66,7 +74,7 @@
 
   <div class="top-actions" style="margin-top:12px;">
     <button class="gray" onclick="actualizarTodos()">Actualizar todos los precios</button>
-    <span class="muted">Se recalcula con el precio base de cada producto.</span>
+    <span class="muted">Recalcula usando el precio base de cada producto.</span>
   </div>
 
   <p class="muted hint">
@@ -124,7 +132,9 @@
   </div>
 
   <div class="muted" style="margin-top:10px;">
-    * El <b>código no se puede repetir</b>. Si intentas guardar un código existente, se bloqueará.
+    <span class="pill">Tip</span>
+    El <b>código no se puede repetir</b>. Si intentas guardar un código existente, se bloqueará.
+    (La importación por Excel usa <b>upsert</b> por código: actualiza si ya existe).
   </div>
 </div>
 
@@ -137,7 +147,8 @@
       <label>Archivo .xlsx</label>
       <input type="file" id="excelFile" accept=".xlsx,.xls">
       <div class="muted" style="margin-top:6px;">
-        La plantilla incluye: <b>codigo</b>, <b>referencia</b>, <b>descripcion</b>, <b>costo</b>, <b>precio</b>. (El sistema recalcula plazos con la configuración global).
+        La plantilla incluye: <b>codigo</b>, <b>referencia</b>, <b>descripcion</b>, <b>costo</b>, <b>precio</b>.
+        (El sistema recalcula plazos con la configuración global).
       </div>
     </div>
   </div>
@@ -152,11 +163,13 @@
 <!-- LISTADO -->
 <div class="card">
   <h3>Listado</h3>
+
   <table>
     <thead>
       <tr>
         <th>Código</th>
         <th>Descripción</th>
+        <th>Costo</th>
         <th>Base</th>
         <th>Plazo 1</th>
         <th>Plazo 2</th>
@@ -168,9 +181,9 @@
 </div>
 
 <script>
-  // ============
+  // ======================
   // Utilidades
-  // ============
+  // ======================
   function calc(precio, porc){ return +(precio * (1 + porc/100)).toFixed(2); }
 
   function getPorcentaje(inputId) {
@@ -193,9 +206,9 @@
     return x.toLocaleString("es-CO", { style:"currency", currency:"COP", maximumFractionDigits:2 });
   }
 
-  // ============
-  // Recalculo UI
-  // ============
+  // ======================
+  // Recalculo UI (al cambiar precio base o %)
+  // ======================
   function recalcular() {
     const base = Number(precio.value||0);
     p1.value = calc(base, getPorcentaje("gPorc1"));
@@ -207,12 +220,12 @@
   gPorc2.addEventListener("input", recalcular);
 
   // Formateo del % cuando el usuario sale del campo
-  gPorc1.addEventListener("blur", () => formatPercentInput(gPorc1));
-  gPorc2.addEventListener("blur", () => formatPercentInput(gPorc2));
+  gPorc1.addEventListener("blur", () => { formatPercentInput(gPorc1); recalcular(); });
+  gPorc2.addEventListener("blur", () => { formatPercentInput(gPorc2); recalcular(); });
 
-  // ============
+  // ======================
   // Cargar listado
-  // ============
+  // ======================
   async function cargar(){
     const {data, error} = await sb.from("medicamentos").select("*").order("descripcion");
     if (error) { alert("Error cargando: " + error.message); return; }
@@ -221,6 +234,7 @@
       <tr>
         <td><b>${m.codigo || ""}</b><div class="muted">${m.referencia || ""}</div></td>
         <td>${m.descripcion || ""}</td>
+        <td>${money(m.costo)}</td>
         <td>${money(m.precio)}</td>
         <td>${m.dias_plazo_1 ?? ""}d (${m.porc_plazo_1 ?? ""}%) → <b>${money(m.precio_10_dias)}</b></td>
         <td>${m.dias_plazo_2 ?? ""}d (${m.porc_plazo_2 ?? ""}%) → <b>${money(m.precio_20_dias)}</b></td>
@@ -233,9 +247,9 @@
       </tr>`).join("");
   }
 
-  // ============
-  // Editar
-  // ============
+  // ======================
+  // Editar (carga + recalcula)
+  // ======================
   function editar(m){
     id.value = m.id;
     referencia.value = m.referencia || "";
@@ -249,14 +263,20 @@
     gPorc1.value = `${(m.porc_plazo_1 ?? 10)}%`;
     gPorc2.value = `${(m.porc_plazo_2 ?? 20)}%`;
 
+    // Recalcula con el precio base y % actuales
     recalcular();
+
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  // ============
+  // ======================
   // Guardar (bloquea código repetido)
-  // ============
+  // ======================
   async function guardar(){
+    // normaliza % visual
+    formatPercentInput(gPorc1);
+    formatPercentInput(gPorc2);
+
     const base = Number(precio.value);
     const cod = (codigo.value || "").trim();
     const desc = (descripcion.value || "").trim();
@@ -311,9 +331,9 @@
     cargar();
   }
 
-  // ============
+  // ======================
   // Eliminar (seleccionado)
-  // ============
+  // ======================
   async function eliminarSeleccion(){
     if (!id.value) return alert("Primero selecciona un producto con 'Editar'.");
     if (!confirm("¿Eliminar este producto?")) return;
@@ -325,9 +345,9 @@
     cargar();
   }
 
-  // ============
+  // ======================
   // Eliminar (desde la tabla)
-  // ============
+  // ======================
   async function eliminarFila(medId){
     if (!confirm("¿Eliminar este producto?")) return;
 
@@ -339,9 +359,9 @@
     cargar();
   }
 
-  // ============
-  // Actualizar todos
-  // ============
+  // ======================
+  // Actualizar todos los productos (mass update)
+  // ======================
   async function actualizarTodos(){
     if(!confirm("¿Actualizar TODOS los productos con los nuevos plazos y %?")) return;
 
@@ -378,9 +398,9 @@
     cargar();
   }
 
-  // ============
-  // Limpiar
-  // ============
+  // ======================
+  // Limpiar formulario
+  // ======================
   function limpiar(){
     id.value = "";
     referencia.value = "";
@@ -390,12 +410,12 @@
     precio.value = "";
     p1.value = "";
     p2.value = "";
-    // no tocamos la configuración global
+    // no tocamos configuración global
   }
 
-  // ============
+  // ======================
   // Plantilla Excel
-  // ============
+  // ======================
   function downloadTemplate(){
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet([{
@@ -409,9 +429,9 @@
     XLSX.writeFile(wb, "plantilla_medicamentos.xlsx");
   }
 
-  // ============
+  // ======================
   // Importar Excel (upsert por codigo)
-  // ============
+  // ======================
   async function importExcel(){
     const file = excelFile.files[0];
     if(!file) return alert("Selecciona un archivo Excel.");
@@ -435,13 +455,17 @@
       const cod = String(r.codigo || r.CODIGO || r.Codigo || "").trim();
       if(!cod){ fail++; continue; }
 
+      const referenciaX = String(r.referencia || r.REFERENCIA || r.Referencia || "").trim() || null;
+      const descripcionX = String(r.descripcion || r.DESCRIPCION || r.Descripcion || "").trim() || null;
+      const costoX = Number(r.costo || r.COSTO || r.Costo || 0);
       const base = Number(r.precio || r.PRECIO || r.Precio || 0);
+
       const payload = {
         codigo: cod,
-        referencia: String(r.referencia || r.REFERENCIA || r.Referencia || "").trim() || null,
-        descripcion: String(r.descripcion || r.DESCRIPCION || r.Descripcion || "").trim() || null,
-        costo: Number(r.costo || r.COSTO || r.Costo || 0),
-        precio: base,
+        referencia: referenciaX,
+        descripcion: descripcionX,
+        costo: Number.isFinite(costoX) ? costoX : 0,
+        precio: Number.isFinite(base) ? base : 0,
 
         dias_plazo_1: d1,
         porc_plazo_1: p1p,
@@ -462,11 +486,10 @@
     cargar();
   }
 
-  // ============
+  // ======================
   // Init
-  // ============
+  // ======================
   (function init(){
-    // Asegurar % desde el inicio
     formatPercentInput(gPorc1);
     formatPercentInput(gPorc2);
     recalcular();
