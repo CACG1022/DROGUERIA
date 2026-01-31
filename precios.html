@@ -1,219 +1,228 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <title>Gestión de precios | Droguería</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8">
+<title>Gestión de precios | Droguería</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase.js"></script>
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
 
-  <!-- SheetJS -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- SheetJS -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-  <style>
-    body { font-family: system-ui; background:#f4f6f8; padding:20px; }
-    h1 { margin-top:0; }
-    .card { background:white; padding:20px; border-radius:12px; margin-bottom:20px; }
-    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap:12px; }
-    input { padding:10px; }
-    button { padding:10px; background:#111; color:white; border:none; border-radius:8px; cursor:pointer; }
-    button.red { background:#b00020; }
-    table { width:100%; border-collapse: collapse; margin-top:10px; }
-    th, td { border-bottom:1px solid #eee; padding:8px; text-align:left; }
-    th { font-size:12px; color:#555; }
-    .muted { font-size:12px; color:#777; }
-  </style>
+<style>
+body { font-family: system-ui; background:#f4f6f8; padding:20px; }
+h1 { margin-top:0; }
+.card { background:#fff; padding:20px; border-radius:12px; margin-bottom:20px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+input { padding:10px; }
+button { padding:10px; border:none; border-radius:8px; cursor:pointer; background:#111; color:#fff; }
+button.red { background:#b00020; }
+button.gray { background:#555; }
+table { width:100%; border-collapse:collapse; }
+th,td { border-bottom:1px solid #eee; padding:8px; text-align:left; }
+th { font-size:12px; color:#555; }
+.muted { font-size:12px; color:#777; }
+</style>
 </head>
 <body>
 
 <a href="index.html">⬅ Volver</a>
-
 <h1>Gestión de precios</h1>
 
+<!-- CONFIGURACIÓN GLOBAL -->
 <div class="card">
-  <h3>Crear / editar medicamento</h3>
+<h3>Configuración global de plazos</h3>
 
-  <input type="hidden" id="id">
+<div class="grid">
+  <input id="gDias1" type="number" value="10" placeholder="Días plazo 1">
+  <input id="gPorc1" type="number" value="10" placeholder="% plazo 1">
 
-  <div class="grid">
-    <input id="referencia" placeholder="Referencia">
-    <input id="codigo" placeholder="Código (único)">
-    <input id="descripcion" placeholder="Descripción">
-    <input id="costo" type="number" placeholder="Costo">
-    <input id="precio" type="number" placeholder="Precio base">
-
-    <input id="dias1" type="number" placeholder="Días opción 1 (ej: 10)">
-    <input id="dias2" type="number" placeholder="Días opción 2 (ej: 20)">
-
-    <input id="precio1" placeholder="Precio opción 1" disabled>
-    <input id="precio2" placeholder="Precio opción 2" disabled>
-  </div>
-
-  <p class="muted">
-    El precio se calcula así: <b>precio × (1 + días / 100)</b>
-  </p>
-
-  <div class="grid">
-    <button onclick="guardar()">Guardar</button>
-    <button class="red" onclick="eliminar()">Eliminar</button>
-  </div>
+  <input id="gDias2" type="number" value="20" placeholder="Días plazo 2">
+  <input id="gPorc2" type="number" value="20" placeholder="% plazo 2">
 </div>
 
-<div class="card">
-  <h3>Actualizar por Excel</h3>
+<br>
+<button class="gray" onclick="actualizarTodos()">Actualizar todos los precios</button>
 
-  <input type="file" id="excelFile" accept=".xlsx,.xls">
-  <br><br>
-  <button onclick="importExcel()">Importar / Actualizar</button>
-  <button onclick="downloadTemplate()">Descargar plantilla</button>
-
-  <div id="excelMsg" class="muted"></div>
+<p class="muted">
+Precio = Precio base × (1 + porcentaje / 100)
+</p>
 </div>
 
+<!-- FORMULARIO -->
 <div class="card">
-  <h3>Listado</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Código</th>
-        <th>Descripción</th>
-        <th>Precio</th>
-        <th>Opción 1</th>
-        <th>Opción 2</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody id="lista"></tbody>
-  </table>
+<h3>Crear / editar medicamento</h3>
+
+<input type="hidden" id="id">
+
+<div class="grid">
+  <input id="referencia" placeholder="Referencia">
+  <input id="codigo" placeholder="Código (único)">
+  <input id="descripcion" placeholder="Descripción">
+  <input id="costo" type="number" placeholder="Costo">
+  <input id="precio" type="number" placeholder="Precio base">
+
+  <input id="p1" placeholder="Precio plazo 1" disabled>
+  <input id="p2" placeholder="Precio plazo 2" disabled>
+</div>
+
+<br>
+<button onclick="guardar()">Guardar</button>
+<button class="red" onclick="eliminar()">Eliminar</button>
+</div>
+
+<!-- EXCEL -->
+<div class="card">
+<h3>Actualizar por Excel</h3>
+<input type="file" id="excelFile" accept=".xlsx,.xls">
+<br><br>
+<button onclick="importExcel()">Importar / Actualizar</button>
+<button onclick="downloadTemplate()">Descargar plantilla</button>
+<div id="excelMsg" class="muted"></div>
+</div>
+
+<!-- LISTADO -->
+<div class="card">
+<h3>Listado</h3>
+<table>
+<thead>
+<tr>
+  <th>Código</th>
+  <th>Descripción</th>
+  <th>Base</th>
+  <th>Plazo 1</th>
+  <th>Plazo 2</th>
+  <th></th>
+</tr>
+</thead>
+<tbody id="lista"></tbody>
+</table>
 </div>
 
 <script>
-function recalcular() {
-  const p = Number(precio.value || 0);
-  const d1 = Number(dias1.value || 0);
-  const d2 = Number(dias2.value || 0);
+function calc(precio, porc){ return +(precio * (1 + porc/100)).toFixed(2); }
 
-  precio1.value = (p * (1 + d1 / 100)).toFixed(2);
-  precio2.value = (p * (1 + d2 / 100)).toFixed(2);
+function recalcular() {
+  const base = Number(precio.value||0);
+  p1.value = calc(base, Number(gPorc1.value));
+  p2.value = calc(base, Number(gPorc2.value));
 }
 
 precio.addEventListener("input", recalcular);
-dias1.addEventListener("input", recalcular);
-dias2.addEventListener("input", recalcular);
+gPorc1.addEventListener("input", recalcular);
+gPorc2.addEventListener("input", recalcular);
 
-async function cargar() {
-  const { data } = await sb.from("medicamentos").select("*").order("descripcion");
-
-  lista.innerHTML = data.map(m => `
+async function cargar(){
+  const {data} = await sb.from("medicamentos").select("*").order("descripcion");
+  lista.innerHTML = data.map(m=>`
     <tr>
       <td>${m.codigo}</td>
       <td>${m.descripcion}</td>
       <td>$${m.precio}</td>
-      <td>${m.dias_opcion_1} días → $${m.precio_10_dias}</td>
-      <td>${m.dias_opcion_2} días → $${m.precio_20_dias}</td>
+      <td>${m.dias_plazo_1}d (${m.porc_plazo_1}%) → $${m.precio_10_dias}</td>
+      <td>${m.dias_plazo_2}d (${m.porc_plazo_2}%) → $${m.precio_20_dias}</td>
       <td><button onclick='editar(${JSON.stringify(m)})'>Editar</button></td>
-    </tr>
-  `).join("");
+    </tr>`).join("");
 }
 
-function editar(m) {
-  id.value = m.id;
-  referencia.value = m.referencia || "";
-  codigo.value = m.codigo;
-  descripcion.value = m.descripcion;
-  costo.value = m.costo;
-  precio.value = m.precio;
+function editar(m){
+  id.value=m.id;
+  referencia.value=m.referencia||"";
+  codigo.value=m.codigo;
+  descripcion.value=m.descripcion;
+  costo.value=m.costo;
+  precio.value=m.precio;
 
-  dias1.value = m.dias_opcion_1 || 10;
-  dias2.value = m.dias_opcion_2 || 20;
+  gDias1.value=m.dias_plazo_1;
+  gPorc1.value=m.porc_plazo_1;
+  gDias2.value=m.dias_plazo_2;
+  gPorc2.value=m.porc_plazo_2;
 
   recalcular();
 }
 
-async function guardar() {
-  const payload = {
-    referencia: referencia.value,
-    codigo: codigo.value,
-    descripcion: descripcion.value,
-    costo: Number(costo.value),
-    precio: Number(precio.value),
-    dias_opcion_1: Number(dias1.value),
-    dias_opcion_2: Number(dias2.value),
-    precio_10_dias: Number(precio1.value),
-    precio_20_dias: Number(precio2.value)
+async function guardar(){
+  const base=Number(precio.value);
+  const payload={
+    referencia:referencia.value,
+    codigo:codigo.value,
+    descripcion:descripcion.value,
+    costo:Number(costo.value),
+    precio:base,
+
+    dias_plazo_1:Number(gDias1.value),
+    porc_plazo_1:Number(gPorc1.value),
+    precio_10_dias:calc(base,Number(gPorc1.value)),
+
+    dias_plazo_2:Number(gDias2.value),
+    porc_plazo_2:Number(gPorc2.value),
+    precio_20_dias:calc(base,Number(gPorc2.value))
   };
 
-  let r;
-  if (id.value)
-    r = await sb.from("medicamentos").update(payload).eq("id", id.value);
-  else
-    r = await sb.from("medicamentos").insert(payload);
+  let r=id.value
+    ? await sb.from("medicamentos").update(payload).eq("id",id.value)
+    : await sb.from("medicamentos").insert(payload);
 
-  if (r.error) alert(r.error.message);
-  else {
-    limpiar();
-    cargar();
-  }
+  if(r.error) alert(r.error.message);
+  else{ limpiar(); cargar(); }
 }
 
-async function eliminar() {
-  if (!id.value) return;
-  if (!confirm("¿Eliminar este producto?")) return;
+async function actualizarTodos(){
+  if(!confirm("¿Actualizar TODOS los productos?")) return;
 
-  await sb.from("medicamentos").delete().eq("id", id.value);
-  limpiar();
+  const {data}=await sb.from("medicamentos").select("*");
+  for(const m of data){
+    const base=m.precio;
+    await sb.from("medicamentos").update({
+      dias_plazo_1:Number(gDias1.value),
+      porc_plazo_1:Number(gPorc1.value),
+      precio_10_dias:calc(base,Number(gPorc1.value)),
+      dias_plazo_2:Number(gDias2.value),
+      porc_plazo_2:Number(gPorc2.value),
+      precio_20_dias:calc(base,Number(gPorc2.value))
+    }).eq("id",m.id);
+  }
+  alert("Precios actualizados");
   cargar();
 }
 
-function limpiar() {
-  id.value = referencia.value = codigo.value = descripcion.value = costo.value = precio.value = "";
-  dias1.value = 10;
-  dias2.value = 20;
-  precio1.value = precio2.value = "";
+function limpiar(){
+  id.value=referencia.value=codigo.value=descripcion.value=costo.value=precio.value="";
+  p1.value=p2.value="";
 }
 
-function downloadTemplate() {
-  const ws = XLSX.utils.json_to_sheet([
-    { codigo:"7701234567890", referencia:"REF-001", descripcion:"Ejemplo", costo:1000, precio:1500 }
-  ]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "medicamentos");
-  XLSX.writeFile(wb, "plantilla_medicamentos.xlsx");
+function downloadTemplate(){
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.json_to_sheet([{codigo:"770123",descripcion:"Ejemplo",precio:1500}]);
+  XLSX.utils.book_append_sheet(wb,ws,"medicamentos");
+  XLSX.writeFile(wb,"plantilla_medicamentos.xlsx");
 }
 
-async function importExcel() {
-  const file = excelFile.files[0];
-  if (!file) return alert("Selecciona un archivo");
-
-  const data = XLSX.utils.sheet_to_json(
-    XLSX.read(await file.arrayBuffer(), {type:"array"}).Sheets["medicamentos"]
+async function importExcel(){
+  const file=excelFile.files[0];
+  if(!file) return;
+  const rows=XLSX.utils.sheet_to_json(
+    XLSX.read(await file.arrayBuffer(),{type:"array"}).Sheets["medicamentos"]
   );
 
-  let ok = 0;
-  for (const r of data) {
-    const precio = Number(r.precio || 0);
-    const d1 = Number(r.dias1 || 10);
-    const d2 = Number(r.dias2 || 20);
-
-    const payload = {
-      codigo: r.codigo,
-      referencia: r.referencia,
-      descripcion: r.descripcion,
-      costo: r.costo,
-      precio,
-      dias_opcion_1: d1,
-      dias_opcion_2: d2,
-      precio_10_dias: precio * (1 + d1/100),
-      precio_20_dias: precio * (1 + d2/100)
-    };
-
-    const { error } = await sb.from("medicamentos").upsert(payload, { onConflict:"codigo" });
-    if (!error) ok++;
+  for(const r of rows){
+    const base=Number(r.precio||0);
+    await sb.from("medicamentos").upsert({
+      codigo:r.codigo,
+      descripcion:r.descripcion,
+      precio:base,
+      dias_plazo_1:Number(gDias1.value),
+      porc_plazo_1:Number(gPorc1.value),
+      precio_10_dias:calc(base,Number(gPorc1.value)),
+      dias_plazo_2:Number(gDias2.value),
+      porc_plazo_2:Number(gPorc2.value),
+      precio_20_dias:calc(base,Number(gPorc2.value))
+    },{onConflict:"codigo"});
   }
-
-  excelMsg.textContent = `Importación finalizada. OK: ${ok}`;
+  excelMsg.textContent="Importación finalizada";
   cargar();
 }
 
@@ -222,4 +231,5 @@ cargar();
 
 </body>
 </html>
+
 
