@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Droguería | Panel principal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, Arial;
+      background: #f4f6f8;
+      display: flex;
+      min-height: 100vh;
+    }
+    nav {
+      width: 220px;
+      background: #111;
+      color: white;
+      padding: 20px;
+    }
+    nav h2 {
+      margin-top: 0;
+    }
+    nav a {
+      display: block;
+      color: #ddd;
+      text-decoration: none;
+      margin: 12px 0;
+    }
+    nav a:hover {
+      color: white;
+    }
+    main {
+      flex: 1;
+      padding: 30px;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,.05);
+      text-decoration: none;
+      color: #111;
+      font-weight: 600;
+    }
+    .card:hover {
+      transform: translateY(-3px);
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <h2>Droguería</h2>
+  <a href="precios.html">💊 Precios</a>
+  <a href="clientes.html">👥 Clientes</a>
+  <a href="portafolio.html">📦 Portafolio</a>
+</nav>
+
+<main>
+  <h1>Panel principal</h1>
+  <p>Selecciona un módulo:</p>
+
+  <div class="cards">
+    <a class="card" href="precios.html">Gestión de precios</a>
+    <a class="card" href="clientes.html">Clientes</a>
+    <a class="card" href="portafolio.html">Cotización / Remisión</a>
+  </div>
+</main>
+
+</body>
+</html>
