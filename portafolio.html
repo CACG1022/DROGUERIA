@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Portafolio | Droguería</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+
+  <style>
+    body { font-family: system-ui; background:#f4f6f8; padding:20px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:20px; }
+    .card { background:white; padding:15px; border-radius:12px; }
+  </style>
+</head>
+<body>
+
+<a href="index.html">⬅ Volver</a>
+
+<h1>Portafolio</h1>
+
+<div id="lista" class="grid"></div>
+
+<script>
+async function cargar() {
+  const { data } = await sb.from("medicamentos").select("*");
+  lista.innerHTML = data.map(m => `
+    <div class="card">
+      <b>${m.descripcion}</b><br>
+      Precio: $${m.precio}
+    </div>
+  `).join("");
+}
+cargar();
+</script>
+
+</body>
+</html>
