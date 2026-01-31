@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Precios | Droguería</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+
+  <style>
+    body { font-family: system-ui; background:#f4f6f8; padding:20px; }
+    .card { background:white; padding:20px; border-radius:12px; max-width:600px; }
+    input, button { width:100%; padding:10px; margin-top:10px; }
+    button { background:#111; color:white; border:none; border-radius:8px; }
+  </style>
+</head>
+<body>
+
+<a href="index.html">⬅ Volver</a>
+
+<h1>Gestión de precios</h1>
+
+<div class="card">
+  <input id="codigo" placeholder="Código">
+  <input id="descripcion" placeholder="Descripción">
+  <input id="precio" type="number" placeholder="Precio base">
+
+  <button onclick="guardar()">Guardar</button>
+</div>
+
+<script>
+async function guardar() {
+  const codigo = codigo.value.trim();
+  const descripcion = descripcion.value.trim();
+  const precio = Number(precio.value);
+
+  const { error } = await sb.from("medicamentos").insert({
+    codigo,
+    descripcion,
+    precio,
+    precio_10_dias: precio * 1.1,
+    precio_20_dias: precio * 1.2
+  });
+
+  if (error) alert(error.message);
+  else alert("Guardado ✔");
+}
+</script>
+
+</body>
+</html>
