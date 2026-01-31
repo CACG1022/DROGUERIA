@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Clientes | Droguería</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase.js"></script>
+
+  <style>
+    body { font-family: system-ui; background:#f4f6f8; padding:20px; }
+    .card { background:white; padding:20px; border-radius:12px; max-width:600px; }
+    input, button { width:100%; padding:10px; margin-top:10px; }
+    button { background:#111; color:white; border:none; border-radius:8px; }
+  </style>
+</head>
+<body>
+
+<a href="index.html">⬅ Volver</a>
+
+<h1>Clientes</h1>
+
+<div class="card">
+  <input id="nombre" placeholder="Nombre">
+  <input id="correo" placeholder="Correo">
+  <input id="contacto" placeholder="Contacto">
+  <button onclick="guardarCliente()">Guardar cliente</button>
+</div>
+
+<script>
+async function guardarCliente() {
+  const { error } = await sb.from("clientes").insert({
+    nombre: nombre.value,
+    correo: correo.value,
+    contacto: contacto.value
+  });
+
+  if (error) alert(error.message);
+  else alert("Cliente guardado ✔");
+}
+</script>
+
+</body>
+</html>
