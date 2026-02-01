@@ -4,157 +4,595 @@
 <meta charset="utf-8">
 <title>Portafolio | Droguería</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase.js"></script>
+
+<!-- PDF (jsPDF + AutoTable) -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+
 <style>
-body{font-family:system-ui;background:#f4f6f8;margin:0;padding:20px}
-h1{margin-top:0}
-.card{background:#fff;border-radius:14px;padding:16px;box-shadow:0 6px 20px rgba(0,0,0,.06)}
+:root{
+  --bg:#f4f6f8;
+  --card:#ffffff;
+  --ink:#0f172a;
+  --muted:#64748b;
+  --line:#e5e7eb;
+  --brand:#2563eb;
+  --brand2:#1e40af;
+  --danger:#dc2626;
+  --shadow:0 10px 30px rgba(2,6,23,.08);
+  --radius:16px;
+}
+*{box-sizing:border-box}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);margin:0;padding:20px;color:var(--ink)}
+a{color:var(--brand);text-decoration:none}
+a:hover{text-decoration:underline}
+h1{margin:8px 0 16px;font-size:28px;letter-spacing:-.02em}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.search{flex:1;min-width:240px;display:flex;gap:10px;align-items:center}
+.input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;outline:none}
+.input:focus{border-color:#bfd0ff;box-shadow:0 0 0 4px rgba(37,99,235,.12)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
-.product{cursor:pointer}
-.product img{width:100%;height:160px;object-fit:contain;background:#fafafa;border-radius:10px}
-.product h3{margin:8px 0 4px}
-.price{font-size:14px}
-button{padding:10px;border:none;border-radius:10px;background:#2563eb;color:#fff;font-weight:600;cursor:pointer}
-button.gray{background:#4b5563}
-.cart-btn{position:fixed;right:20px;bottom:20px;background:#111;padding:14px 18px;border-radius:999px;font-weight:700}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center}
-.modal-content{background:#fff;width:90%;max-width:900px;border-radius:14px;padding:20px;max-height:90vh;overflow:auto}
-table{width:100%;border-collapse:collapse}
-th,td{border-bottom:1px solid #eee;padding:8px;text-align:left;font-size:14px}
-.close{float:right;cursor:pointer;font-weight:700}
-label{font-size:12px;font-weight:600;display:block;margin-bottom:4px}
-.total-box{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:12px}
-.total{font-size:16px;font-weight:700;text-align:right}
+.card{background:var(--card);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
+.product{position:relative;overflow:hidden;border:1px solid rgba(229,231,235,.7)}
+.product:hover{transform:translateY(-1px);transition:.12s ease;box-shadow:0 16px 40px rgba(2,6,23,.10)}
+.product .imgwrap{height:170px;background:#f8fafc;border-radius:14px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(229,231,235,.8);overflow:hidden}
+.product img{width:100%;height:100%;object-fit:contain}
+.product h3{margin:10px 0 6px;font-size:16px;line-height:1.2}
+.meta{color:var(--muted);font-size:12px;margin-bottom:8px}
+.prices{display:grid;gap:4px;font-size:13px}
+.prices b{font-weight:800}
+.row{display:flex;gap:10px;align-items:center}
+.btn{padding:10px 12px;border:0;border-radius:12px;cursor:pointer;font-weight:700}
+.btn.primary{background:var(--brand);color:#fff}
+.btn.primary:hover{background:var(--brand2)}
+.btn.ghost{background:#eef2ff;color:#1e293b}
+.btn.ghost:hover{background:#e0e7ff}
+.btn.danger{background:var(--danger);color:#fff}
+.btn.danger:hover{filter:brightness(.92)}
+.badge{
+  position:absolute;top:10px;left:10px;
+  background:rgba(15,23,42,.88);color:#fff;
+  padding:6px 10px;border-radius:999px;font-size:12px;font-weight:800;
+  display:none;
+}
+.product.in-cart .badge{display:inline-block}
+.product.in-cart{outline:3px solid rgba(37,99,235,.18)}
+.qty-pill{
+  position:absolute;top:10px;right:10px;
+  background:#fff;border:1px solid var(--line);
+  padding:6px 10px;border-radius:999px;font-size:12px;font-weight:800;
+  display:none;
+}
+.product.in-cart .qty-pill{display:inline-block}
+.cart-fab{
+  position:fixed;right:18px;bottom:18px;
+  background:rgba(15,23,42,.95);color:#fff;
+  padding:14px 16px;border-radius:999px;
+  box-shadow:0 12px 40px rgba(2,6,23,.35);
+  display:flex;align-items:center;gap:10px;cursor:pointer;border:0;font-weight:800;
+}
+.cart-fab:hover{background:#0b1220}
+.cart-fab .dot{width:8px;height:8px;border-radius:50%;background:#22c55e}
+.cart-fab .count{background:#fff;color:#111827;border-radius:999px;padding:4px 8px;font-size:12px}
+/* Modales */
+.modal{position:fixed;inset:0;background:rgba(2,6,23,.55);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modal.open{display:flex}
+.modal .sheet{width:100%;max-width:980px;background:#fff;border-radius:22px;box-shadow:0 24px 80px rgba(2,6,23,.35);overflow:hidden}
+.sheet-header{padding:18px 18px 12px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.sheet-title{display:flex;flex-direction:column;gap:4px}
+.sheet-title h2{margin:0;font-size:20px;letter-spacing:-.01em}
+.sheet-title .sub{font-size:12px;color:var(--muted)}
+.sheet-actions{display:flex;gap:10px;align-items:center}
+.iconbtn{border:1px solid var(--line);background:#fff;border-radius:12px;padding:8px 10px;cursor:pointer;font-weight:800}
+.iconbtn:hover{background:#f8fafc}
+.sheet-body{padding:16px 18px 18px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field label{display:block;font-size:12px;font-weight:800;color:#334155;margin-bottom:6px}
+.field select,.field input,.field textarea{
+  width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;outline:none;background:#fff
+}
+.field select:focus,.field input:focus,.field textarea:focus{border-color:#bfd0ff;box-shadow:0 0 0 4px rgba(37,99,235,.12)}
+.table{width:100%;border-collapse:collapse;margin-top:12px}
+.table th,.table td{border-bottom:1px solid var(--line);padding:10px 8px;text-align:left;font-size:13px;vertical-align:top}
+.table th{font-size:12px;color:#475569}
+.table td .mini{font-size:12px;color:var(--muted)}
+.table input[type=number]{width:86px}
+.totals{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:10px;margin-top:14px}
+.total-card{border:1px solid var(--line);border-radius:14px;padding:12px;background:#f8fafc}
+.total-card .k{font-size:12px;color:var(--muted)}
+.total-card .v{font-size:18px;font-weight:900;margin-top:4px}
+.muted{color:var(--muted);font-size:12px}
+.hr{height:1px;background:var(--line);margin:12px 0}
+/* Modal imagen */
+.small{max-width:560px}
+.hint{font-size:12px;color:var(--muted)}
+@media (max-width:760px){
+  .split{grid-template-columns:1fr}
+  .totals{grid-template-columns:1fr}
+}
 </style>
 </head>
-<body>
-<a href="index.html">⬅ Volver</a>
-<h1>Portafolio de productos</h1>
-<div class="grid" id="productos"></div>
-<button class="cart-btn" onclick="abrirCarrito()">🛒 Carrito (<span id="cartCount">0</span>)</button>
 
-<div class="modal" id="imgModal">
-  <div class="modal-content">
-    <span class="close" onclick="imgModal.style.display='none'">✖</span>
-    <h3>Subir imagen del producto</h3>
-    <p id="imgProd"></p>
-    <input type="file" id="imgFile" accept="image/*"><br><br>
-    <button onclick="subirImagen()">Subir imagen</button>
+<body>
+<div class="topbar">
+  <div>
+    <a href="index.html">⬅ Volver</a>
+    <h1>Portafolio de productos</h1>
+    <div class="muted">Tip: <b>doble clic</b> en una tarjeta para subir imagen. Click en <b>Agregar</b> para sumar al carrito.</div>
+  </div>
+  <div class="search">
+    <input id="q" class="input" placeholder="Buscar por código o descripción…" oninput="renderProductos()">
+    <button class="btn ghost" onclick="recargarTodo()">Recargar</button>
   </div>
 </div>
 
-<div class="modal" id="modal">
-  <div class="modal-content">
-    <span class="close" onclick="cerrarCarrito()">✖</span>
-    <h2>REMISIÓN / COTIZACIÓN</h2>
-    <label>Cliente</label>
-    <select id="clienteSelect"></select>
-    <table>
-      <thead>
-        <tr><th>Producto</th><th>Cant.</th><th>Precio</th><th>Total</th></tr>
-      </thead>
-      <tbody id="cartTable"></tbody>
-    </table>
-    <div class="total-box">
-      <div class="total">Contado: $ <span id="tContado">0</span></div>
-      <div class="total">Plazo 1: $ <span id="tP1">0</span></div>
-      <div class="total">Plazo 2: $ <span id="tP2">0</span></div>
+<div class="grid" id="productos"></div>
+
+<button class="cart-fab" onclick="abrirCarrito()" title="Abrir cotización">
+  <span class="dot"></span> Carrito <span class="count" id="cartCount">0</span>
+</button>
+
+<!-- Modal imagen (doble clic en producto) -->
+<div class="modal" id="imgModal">
+  <div class="sheet small">
+    <div class="sheet-header">
+      <div class="sheet-title">
+        <h2>Subir imagen</h2>
+        <div class="sub" id="imgProdSub">Producto</div>
+      </div>
+      <div class="sheet-actions">
+        <button class="iconbtn" onclick="cerrarImg()">✖</button>
+      </div>
+    </div>
+    <div class="sheet-body">
+      <div class="hint">Se guardará en Supabase Storage (bucket <b>productos</b>) y se asociará al medicamento.</div>
+      <div class="hr"></div>
+      <div class="field">
+        <label>Imagen</label>
+        <input type="file" id="imgFile" accept="image/*">
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" onclick="subirImagen()">Subir</button>
+        <button class="btn ghost" onclick="cerrarImg()">Cancelar</button>
+        <span class="muted" id="imgMsg" style="margin-left:auto"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal cotización / remisión -->
+<div class="modal" id="cartModal">
+  <div class="sheet">
+    <div class="sheet-header">
+      <div class="sheet-title">
+        <h2 id="docTitle">COTIZACIÓN</h2>
+        <div class="sub" id="docSub">Fecha: —</div>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn ghost" onclick="descargarPDF()">Descargar PDF</button>
+        <button class="iconbtn" onclick="cerrarCarrito()">✖</button>
+      </div>
+    </div>
+    <div class="sheet-body">
+      <div class="split">
+        <div class="field">
+          <label>Cliente</label>
+          <select id="clienteSelect" onchange="renderCarrito()"></select>
+        </div>
+        <div class="field">
+          <label>Tipo de documento</label>
+          <select id="tipoDoc" onchange="renderCarrito()">
+            <option value="COTIZACIÓN">COTIZACIÓN</option>
+            <option value="REMISIÓN">REMISIÓN</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:10px">
+        <label>Notas (opcional)</label>
+        <textarea id="notas" rows="2" placeholder="Condiciones, tiempos, observaciones…" oninput="renderCarrito()"></textarea>
+      </div>
+
+      <table class="table" id="cartTable">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Cant.</th>
+            <th>Precio</th>
+            <th>Total</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="cartBody"></tbody>
+      </table>
+
+      <div class="totals">
+        <div class="total-card">
+          <div class="k">Total Contado</div>
+          <div class="v" id="tContado">$0</div>
+        </div>
+        <div class="total-card">
+          <div class="k">Total Plazo 1</div>
+          <div class="v" id="tP1">$0</div>
+          <div class="muted" id="p1Meta"></div>
+        </div>
+        <div class="total-card">
+          <div class="k">Total Plazo 2</div>
+          <div class="v" id="tP2">$0</div>
+          <div class="muted" id="p2Meta"></div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:14px">
+        <button class="btn danger" onclick="vaciarCarrito()">Vaciar</button>
+        <span class="muted" style="margin-left:auto">Los totales se calculan con los precios guardados en la tabla de medicamentos.</span>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
-let carrito=[];
-let imgProducto=null;
-const formato=n=>Number(n).toLocaleString("es-CO");
+/* =====================
+   Estado
+===================== */
+let meds = [];
+let clientes = [];
+let carrito = []; // {id, codigo, descripcion, dias1, dias2, pBase, p1, p2, cantidad, modo}
+let imgProducto = null;
 
-async function cargarProductos(){
-  const {data}=await sb.from("medicamentos")
-    .select("*, medicamento_imagenes(url)").order("descripcion");
-  productos.innerHTML=data.map(p=>{
-    const img=p.medicamento_imagenes?.[0]?.url||
-      "https://via.placeholder.com/300x200?text=Sin+imagen";
-    return `<div class="card product" ondblclick='abrirImg(${JSON.stringify(p)})'>
-      <img src="${img}">
-      <h3>${p.descripcion}</h3>
-      <div class="price">Contado: <b>$${formato(p.precio)}</b></div>
-      <div class="price">${p.dias_plazo_1} días: $${formato(p.precio_10_dias)}</div>
-      <div class="price">${p.dias_plazo_2} días: $${formato(p.precio_20_dias)}</div>
-      <button onclick='agregar(${JSON.stringify(p)})'>Agregar</button>
-    </div>`;
-  }).join("");
+/* =====================
+   Util
+===================== */
+function money(n){
+  return Number(n||0).toLocaleString("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0});
 }
-
-function agregar(p){
-  const e=carrito.find(i=>i.id===p.id);
-  if(e)e.cantidad++; else carrito.push({
-    id:p.id,descripcion:p.descripcion,cantidad:1,
-    precios:{c:p.precio,p1:p.precio_10_dias,p2:p.precio_20_dias},
-    modo:"c"
+function nowStr(){
+  return new Date().toLocaleString("es-CO");
+}
+function cartCount(){
+  return carrito.reduce((a,b)=>a+Number(b.cantidad||0),0);
+}
+function findCliente(){
+  const id = document.getElementById("clienteSelect").value;
+  return clientes.find(c=>String(c.id)===String(id)) || null;
+}
+function upsertCartItem(m){
+  const x = carrito.find(i=>i.id===m.id);
+  if(x) x.cantidad += 1;
+  else carrito.push({
+    id: m.id,
+    codigo: m.codigo,
+    descripcion: m.descripcion,
+    dias1: m.dias_plazo_1,
+    dias2: m.dias_plazo_2,
+    pBase: Number(m.precio||0),
+    p1: Number(m.precio_10_dias||0),
+    p2: Number(m.precio_20_dias||0),
+    cantidad: 1,
+    modo: "c" // c, p1, p2
   });
-  cartCount.textContent=carrito.reduce((a,b)=>a+Number(b.cantidad),0);
 }
 
-function abrirCarrito(){renderCarrito();modal.style.display="flex";}
-function cerrarCarrito(){modal.style.display="none";}
+/* =====================
+   Carga inicial
+===================== */
+async function recargarTodo(){
+  await Promise.all([cargarProductos(), cargarClientes()]);
+  renderProductos();
+  renderCarrito();
+}
+async function cargarProductos(){
+  const {data, error} = await sb
+    .from("medicamentos")
+    .select("*, medicamento_imagenes(url)")
+    .order("descripcion",{ascending:true});
+  if(error){ alert("Error cargando productos: "+error.message); return; }
+  meds = data || [];
+}
+async function cargarClientes(){
+  const {data, error} = await sb.from("clientes").select("id,nombre,correo,contacto").order("nombre",{ascending:true});
+  if(error){ alert("Error cargando clientes: "+error.message); return; }
+  clientes = data || [];
+  const sel = document.getElementById("clienteSelect");
+  sel.innerHTML = '<option value="">(sin seleccionar)</option>' + clientes.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join("");
+}
+
+/* =====================
+   Render productos + UI de selección
+===================== */
+function renderProductos(){
+  const q = (document.getElementById("q").value||"").trim().toLowerCase();
+  const host = document.getElementById("productos");
+  const mapQty = new Map(carrito.map(it=>[it.id, Number(it.cantidad||0)]));
+
+  let items = meds;
+  if(q){
+    items = items.filter(m=>
+      String(m.codigo||"").toLowerCase().includes(q) ||
+      String(m.descripcion||"").toLowerCase().includes(q)
+    );
+  }
+
+  host.innerHTML = items.map(m=>{
+    const img = m.medicamento_imagenes?.[0]?.url || "https://via.placeholder.com/600x400?text=Sin+imagen";
+    const qty = mapQty.get(m.id) || 0;
+    const inCart = qty>0 ? "in-cart" : "";
+    return `
+      <div class="card product ${inCart}" ondblclick='abrirImg(${safeJson(m)})' title="Doble clic para subir imagen">
+        <span class="badge">Agregado</span>
+        <span class="qty-pill">x${qty}</span>
+        <div class="imgwrap"><img src="${img}" alt="${escapeHtml(m.descripcion||"Producto")}"></div>
+        <h3>${escapeHtml(m.descripcion||"")}</h3>
+        <div class="meta">Código: <b>${escapeHtml(m.codigo||"")}</b></div>
+        <div class="prices">
+          <div>Contado: <b>${money(m.precio)}</b></div>
+          <div>${m.dias_plazo_1 ?? 0} días: <b>${money(m.precio_10_dias)}</b></div>
+          <div>${m.dias_plazo_2 ?? 0} días: <b>${money(m.precio_20_dias)}</b></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" onclick='agregar(${safeJson(m)}); event.stopPropagation();'>Agregar</button>
+          <button class="btn ghost" onclick='restar(${m.id}); event.stopPropagation();' title="Quitar 1">-</button>
+          <div class="muted" style="margin-left:auto">En carrito: <b>${qty}</b></div>
+        </div>
+      </div>
+    `;
+  }).join("");
+  document.getElementById("cartCount").textContent = cartCount();
+}
+function agregar(m){
+  upsertCartItem(m);
+  renderProductos();
+  renderCarrito();
+}
+function restar(id){
+  const x = carrito.find(i=>i.id===id);
+  if(!x) return;
+  x.cantidad = Math.max(0, Number(x.cantidad||0)-1);
+  if(x.cantidad===0) carrito = carrito.filter(i=>i.id!==id);
+  renderProductos();
+  renderCarrito();
+}
+
+/* =====================
+   Modal carrito (cotización)
+===================== */
+function abrirCarrito(){
+  document.getElementById("cartModal").classList.add("open");
+  renderCarrito();
+}
+function cerrarCarrito(){
+  document.getElementById("cartModal").classList.remove("open");
+}
+function vaciarCarrito(){
+  if(!confirm("¿Vaciar el carrito?")) return;
+  carrito = [];
+  renderProductos();
+  renderCarrito();
+}
+function quitarItem(id){
+  carrito = carrito.filter(i=>i.id!==id);
+  renderProductos();
+  renderCarrito();
+}
+function setQty(id, v){
+  const x = carrito.find(i=>i.id===id);
+  if(!x) return;
+  const n = Math.max(1, Number(v||1));
+  x.cantidad = n;
+  renderProductos();
+  renderCarrito();
+}
+function setModo(id, modo){
+  const x = carrito.find(i=>i.id===id);
+  if(!x) return;
+  x.modo = modo;
+  renderCarrito();
+}
+
+function totals(){
+  let tC=0, tP1=0, tP2=0;
+  for(const it of carrito){
+    const q = Number(it.cantidad||0);
+    tC += it.pBase*q;
+    tP1 += it.p1*q;
+    tP2 += it.p2*q;
+  }
+  return {tC, tP1, tP2};
+}
 
 function renderCarrito(){
-  let tc=0,tp1=0,tp2=0;
-  cartTable.innerHTML=carrito.map((p,i)=>{
-    tc+=p.precios.c*p.cantidad;
-    tp1+=p.precios.p1*p.cantidad;
-    tp2+=p.precios.p2*p.cantidad;
-    const precio=p.modo==="c"?p.precios.c:p.modo==="p1"?p.precios.p1:p.precios.p2;
-    return `<tr>
-      <td>${p.descripcion}</td>
-      <td><input type="number" min="1" value="${p.cantidad}"
-        onchange="carrito[${i}].cantidad=this.value;renderCarrito()"></td>
-      <td>
-        <select onchange="carrito[${i}].modo=this.value;renderCarrito()">
-          <option value="c">Contado</option>
-          <option value="p1">Plazo 1</option>
-          <option value="p2">Plazo 2</option>
-        </select>
-      </td>
-      <td>$${formato(precio*p.cantidad)}</td>
-    </tr>`;
-  }).join("");
-  tContado.textContent=formato(tc);
-  tP1.textContent=formato(tp1);
-  tP2.textContent=formato(tp2);
+  const tipo = document.getElementById("tipoDoc").value;
+  document.getElementById("docTitle").textContent = tipo;
+  document.getElementById("docSub").textContent = `Fecha: ${nowStr()}`;
+
+  const c = findCliente();
+  const notas = (document.getElementById("notas").value||"").trim();
+
+  // Metas de plazos (tomamos el primer item como referencia visual si existe)
+  const first = carrito[0] || null;
+  document.getElementById("p1Meta").textContent = first ? `${first.dias1} días` : "";
+  document.getElementById("p2Meta").textContent = first ? `${first.dias2} días` : "";
+
+  const tb = document.getElementById("cartBody");
+  if(!carrito.length){
+    tb.innerHTML = `<tr><td colspan="5" class="muted">Tu carrito está vacío.</td></tr>`;
+  }else{
+    tb.innerHTML = carrito.map(it=>{
+      const price = it.modo==="c" ? it.pBase : it.modo==="p1" ? it.p1 : it.p2;
+      const line = price * Number(it.cantidad||0);
+      const label = it.modo==="c" ? "Contado" : it.modo==="p1" ? `Plazo 1 (${it.dias1}d)` : `Plazo 2 (${it.dias2}d)`;
+      return `
+        <tr>
+          <td>
+            <div><b>${escapeHtml(it.descripcion)}</b></div>
+            <div class="mini">Código: ${escapeHtml(it.codigo)} · ${label}</div>
+          </td>
+          <td><input type="number" min="1" value="${it.cantidad}" oninput="setQty(${it.id}, this.value)"></td>
+          <td>
+            <select onchange="setModo(${it.id}, this.value)">
+              <option value="c" ${it.modo==="c"?"selected":""}>Contado (${money(it.pBase)})</option>
+              <option value="p1" ${it.modo==="p1"?"selected":""}>Plazo 1 (${it.dias1}d · ${money(it.p1)})</option>
+              <option value="p2" ${it.modo==="p2"?"selected":""}>Plazo 2 (${it.dias2}d · ${money(it.p2)})</option>
+            </select>
+          </td>
+          <td><b>${money(line)}</b></td>
+          <td><button class="btn ghost" onclick="quitarItem(${it.id})">Quitar</button></td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  const t = totals();
+  document.getElementById("tContado").textContent = money(t.tC);
+  document.getElementById("tP1").textContent = money(t.tP1);
+  document.getElementById("tP2").textContent = money(t.tP2);
+
+  // Guardamos preview "para PDF"
+  window.__docPreview = { tipo, fecha: nowStr(), cliente: c, notas, items: carrito.map(x=>({...x})), totals: t };
 }
 
-function abrirImg(p){
-  imgProducto=p;
-  imgProd.textContent=p.descripcion;
-  imgModal.style.display="flex";
+/* =====================
+   Subir imágenes (doble clic)
+===================== */
+function abrirImg(m){
+  imgProducto = m;
+  document.getElementById("imgProdSub").textContent = `${m.descripcion} · Código ${m.codigo}`;
+  document.getElementById("imgMsg").textContent = "";
+  document.getElementById("imgFile").value = "";
+  document.getElementById("imgModal").classList.add("open");
 }
-
+function cerrarImg(){
+  document.getElementById("imgModal").classList.remove("open");
+  imgProducto = null;
+}
 async function subirImagen(){
-  const file=imgFile.files[0];
-  if(!file||!imgProducto)return;
-  const path=`${imgProducto.codigo}/${Date.now()}_${file.name}`;
-  const {error}=await sb.storage.from("productos").upload(path,file,{upsert:true});
-  if(error){alert(error.message);return;}
-  const {data}=sb.storage.from("productos").getPublicUrl(path);
-  await sb.from("medicamento_imagenes").insert({
-    medicamento_id:imgProducto.id,
-    url:data.publicUrl
+  const file = document.getElementById("imgFile").files[0];
+  if(!file || !imgProducto){ alert("Selecciona una imagen."); return; }
+
+  const msg = document.getElementById("imgMsg");
+  msg.textContent = "Subiendo…";
+
+  const path = `${imgProducto.codigo}/${Date.now()}_${file.name}`;
+  const {error:upErr} = await sb.storage.from("productos").upload(path, file, {upsert:true});
+  if(upErr){ msg.textContent=""; alert(upErr.message); return; }
+
+  const {data:urlData} = sb.storage.from("productos").getPublicUrl(path);
+
+  const {error:insErr} = await sb.from("medicamento_imagenes").insert({
+    medicamento_id: imgProducto.id,
+    url: urlData.publicUrl
   });
-  imgModal.style.display="none";
-  imgFile.value="";
-  cargarProductos();
+  if(insErr){ msg.textContent=""; alert(insErr.message); return; }
+
+  msg.textContent = "✅ Listo";
+  await cargarProductos();
+  renderProductos();
+  setTimeout(()=>cerrarImg(), 450);
 }
 
-async function cargarClientes(){
-  const {data}=await sb.from("clientes").select("id,nombre").order("nombre");
-  clienteSelect.innerHTML='<option value="">(sin seleccionar)</option>'+
-    data.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join("");
+/* =====================
+   Descargar PDF
+===================== */
+function descargarPDF(){
+  if(!window.__docPreview) renderCarrito();
+  const p = window.__docPreview;
+  if(!p || !p.items){ alert("No hay datos para exportar."); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:"pt", format:"a4" });
+
+  const margin = 40;
+  let y = 42;
+
+  doc.setFont("helvetica","bold");
+  doc.setFontSize(18);
+  doc.text(String(p.tipo || "COTIZACIÓN"), margin, y);
+  y += 18;
+
+  doc.setFont("helvetica","normal");
+  doc.setFontSize(10);
+  doc.setTextColor(80);
+  doc.text(`Fecha: ${p.fecha}`, margin, y);
+  y += 14;
+
+  const cli = p.cliente;
+  const cliName = cli?.nombre ? cli.nombre : "(sin seleccionar)";
+  const cliMail = cli?.correo ? cli.correo : "-";
+  const cliTel  = cli?.contacto ? cli.contacto : "-";
+  doc.text(`Cliente: ${cliName}`, margin, y); y += 14;
+  doc.text(`Correo: ${cliMail}   ·   Contacto: ${cliTel}`, margin, y); y += 14;
+
+  doc.setTextColor(0);
+  if(p.notas){
+    doc.setTextColor(80);
+    doc.text(`Notas: ${p.notas}`, margin, y);
+    y += 16;
+    doc.setTextColor(0);
+  }
+
+  // Tabla
+  const rows = p.items.map(it=>{
+    const label = it.modo==="c" ? "Contado" : it.modo==="p1" ? `Plazo 1 (${it.dias1}d)` : `Plazo 2 (${it.dias2}d)`;
+    const price = it.modo==="c" ? it.pBase : it.modo==="p1" ? it.p1 : it.p2;
+    return [
+      it.codigo,
+      it.descripcion,
+      String(it.cantidad),
+      label,
+      money(price),
+      money(price * Number(it.cantidad||0))
+    ];
+  });
+
+  doc.autoTable({
+    startY: y + 6,
+    head: [["Código","Descripción","Cant.","Precio","Unit.","Total"]],
+    body: rows,
+    styles: { fontSize: 9, cellPadding: 6 },
+    headStyles: { fillColor: [37, 99, 235] },
+    margin: { left: margin, right: margin }
+  });
+
+  const endY = doc.lastAutoTable.finalY + 18;
+
+  // Totales
+  doc.setFont("helvetica","bold");
+  doc.setFontSize(11);
+  doc.text(`Total Contado: ${money(p.totals.tC)}`, margin, endY);
+  doc.text(`Total Plazo 1: ${money(p.totals.tP1)}`, margin, endY + 14);
+  doc.text(`Total Plazo 2: ${money(p.totals.tP2)}`, margin, endY + 28);
+
+  const fileName = `${(p.tipo||"cotizacion").toLowerCase().replace(/\s+/g,'_')}_${Date.now()}.pdf`;
+  doc.save(fileName);
 }
 
-cargarProductos();
-cargarClientes();
+/* =====================
+   Helpers (evitar romper HTML por comillas)
+===================== */
+function escapeHtml(s){
+  return String(s||"").replace(/[&<>"']/g, m => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+  }[m]));
+}
+function safeJson(obj){
+  // JSON embebido seguro para onclick
+  return JSON.stringify(obj).replace(/</g,"\u003c").replace(/>/g,"\u003e");
+}
+
+/* =====================
+   Init
+===================== */
+(async function init(){
+  await recargarTodo();
+})();
+
+// Cerrar modales clic afuera
+document.getElementById("cartModal").addEventListener("click", (e)=>{ if(e.target.id==="cartModal") cerrarCarrito(); });
+document.getElementById("imgModal").addEventListener("click", (e)=>{ if(e.target.id==="imgModal") cerrarImg(); });
 </script>
 </body>
 </html>
