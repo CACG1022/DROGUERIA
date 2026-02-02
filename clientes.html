@@ -1,44 +1,502 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <title>Clientes | Droguería</title>
+<meta charset="utf-8">
+<title>Gestión de precios | Droguería</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase.js"></script>
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
 
-  <style>
-    body { font-family: system-ui; background:#f4f6f8; padding:20px; }
-    .card { background:white; padding:20px; border-radius:12px; max-width:600px; }
-    input, button { width:100%; padding:10px; margin-top:10px; }
-    button { background:#111; color:white; border:none; border-radius:8px; }
-  </style>
+<!-- SheetJS (Excel) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<style>
+  body { font-family: system-ui; background:#f4f6f8; padding:20px; }
+  h1 { margin-top:0; }
+
+  .card { background:#fff; padding:20px; border-radius:12px; margin-bottom:20px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+
+  input, select, textarea { padding:10px; border:1px solid #ddd; border-radius:10px; outline:none; }
+  input:focus, select:focus, textarea:focus { border-color:#bbb; }
+
+  button { padding:10px 12px; border:none; border-radius:10px; cursor:pointer; background:#111; color:#fff; }
+  button.red { background:#b00020; }
+  button.gray { background:#555; }
+  button.outline { background:#fff; color:#111; border:1px solid #ddd; }
+
+  table { width:100%; border-collapse:collapse; }
+  th,td { border-bottom:1px solid #eee; padding:10px 8px; text-align:left; vertical-align: top; }
+  th { font-size:12px; color:#555; }
+
+  .muted { font-size:12px; color:#777; }
+  label { font-size: 12px; font-weight: 600; margin-bottom: 4px; display: block; color:#333; }
+
+  .row-actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+  .top-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .top-actions button { width:auto; }
+  .hint { margin-top:8px; }
+  .pill { display:inline-block; padding:4px 8px; border:1px solid #eee; border-radius:999px; font-size:12px; background:#fafafa; }
+</style>
 </head>
+
 <body>
-
 <a href="index.html">⬅ Volver</a>
+<h1>Gestión de precios</h1>
 
-<h1>Clientes</h1>
-
+<!-- CONFIGURACIÓN GLOBAL -->
 <div class="card">
-  <input id="nombre" placeholder="Nombre">
-  <input id="correo" placeholder="Correo">
-  <input id="contacto" placeholder="Contacto">
-  <button onclick="guardarCliente()">Guardar cliente</button>
+  <h3>Configuración global de plazos</h3>
+
+  <div class="grid">
+    <div>
+      <label>Días plazo 1</label>
+      <input id="gDias1" type="number" value="10" min="0">
+    </div>
+
+    <div>
+      <label>% plazo 1</label>
+      <input id="gPorc1" type="text" value="10%" inputmode="decimal">
+    </div>
+
+    <div>
+      <label>Días plazo 2</label>
+      <input id="gDias2" type="number" value="20" min="0">
+    </div>
+
+    <div>
+      <label>% plazo 2</label>
+      <input id="gPorc2" type="text" value="20%" inputmode="decimal">
+    </div>
+  </div>
+
+  <div class="top-actions" style="margin-top:12px;">
+    <button class="gray" onclick="actualizarTodos()">Actualizar todos los precios</button>
+    <span class="muted">Recalcula usando el precio base de cada producto.</span>
+  </div>
+
+  <p class="muted hint">
+    Fórmula: <b>Precio = Precio base × (1 + porcentaje / 100)</b>
+  </p>
+</div>
+
+<!-- FORMULARIO -->
+<div class="card">
+  <h3>Crear / editar medicamento</h3>
+
+  <input type="hidden" id="id">
+
+  <div class="grid">
+    <div>
+      <label>Referencia</label>
+      <input id="referencia" placeholder="REF-001">
+    </div>
+
+    <div>
+      <label>Código (único)</label>
+      <input id="codigo" placeholder="7701234567890" autocomplete="off">
+    </div>
+
+    <div style="grid-column: 1 / -1;">
+      <label>Descripción</label>
+      <input id="descripcion" placeholder="Ej: Acetaminofén 500mg..." autocomplete="off">
+    </div>
+
+    <div>
+      <label>Costo</label>
+      <input id="costo" type="number" placeholder="0" min="0" step="0.01">
+    </div>
+
+    <div>
+      <label>Precio base</label>
+      <input id="precio" type="number" placeholder="0" min="0" step="0.01">
+    </div>
+
+    <div>
+      <label>Precio plazo 1</label>
+      <input id="p1" placeholder="Calculado" disabled>
+    </div>
+
+    <div>
+      <label>Precio plazo 2</label>
+      <input id="p2" placeholder="Calculado" disabled>
+    </div>
+  </div>
+
+  <div class="top-actions" style="margin-top:12px;">
+    <button onclick="guardar()">Guardar</button>
+    <button class="outline" onclick="limpiar()">Limpiar</button>
+    <button class="red" onclick="eliminarSeleccion()">Eliminar seleccionado</button>
+  </div>
+
+  <div class="muted" style="margin-top:10px;">
+    <span class="pill">Tip</span>
+    El <b>código no se puede repetir</b>. Si intentas guardar un código existente, se bloqueará.
+    (La importación por Excel usa <b>upsert</b> por código: actualiza si ya existe).
+  </div>
+</div>
+
+<!-- EXCEL -->
+<div class="card">
+  <h3>Actualizar por Excel</h3>
+
+  <div class="grid">
+    <div style="grid-column: 1 / -1;">
+      <label>Archivo .xlsx</label>
+      <input type="file" id="excelFile" accept=".xlsx,.xls">
+      <div class="muted" style="margin-top:6px;">
+        La plantilla incluye: <b>codigo</b>, <b>referencia</b>, <b>descripcion</b>, <b>costo</b>, <b>precio</b>.
+        (El sistema recalcula plazos con la configuración global).
+      </div>
+    </div>
+  </div>
+
+  <div class="top-actions" style="margin-top:12px;">
+    <button onclick="importExcel()">Importar / Actualizar</button>
+    <button class="outline" onclick="downloadTemplate()">Descargar plantilla</button>
+    <span id="excelMsg" class="muted"></span>
+  </div>
+</div>
+
+<!-- LISTADO -->
+<div class="card">
+  <h3>Listado</h3>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Descripción</th>
+        <th>Costo</th>
+        <th>Base</th>
+        <th>Plazo 1</th>
+        <th>Plazo 2</th>
+        <th style="text-align:right;">Acciones</th>
+      </tr>
+    </thead>
+    <tbody id="lista"></tbody>
+  </table>
 </div>
 
 <script>
-async function guardarCliente() {
-  const { error } = await sb.from("clientes").insert({
-    nombre: nombre.value,
-    correo: correo.value,
-    contacto: contacto.value
-  });
+  // ======================
+  // Utilidades
+  // ======================
+  function calc(precio, porc){ return +(precio * (1 + porc/100)).toFixed(2); }
 
-  if (error) alert(error.message);
-  else alert("Cliente guardado ✔");
-}
+  function getPorcentaje(inputId) {
+    const v = (document.getElementById(inputId).value || "")
+      .toString()
+      .replace('%','')
+      .replace(',','.')
+      .trim();
+    const n = Number(v || 0);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function formatPercentInput(el){
+    const n = getPorcentaje(el.id);
+    el.value = `${n}%`;
+  }
+
+  function money(n){
+    const x = Number(n || 0);
+    return x.toLocaleString("es-CO", { style:"currency", currency:"COP", maximumFractionDigits:2 });
+  }
+
+  // ======================
+  // Recalculo UI (al cambiar precio base o %)
+  // ======================
+  function recalcular() {
+    const base = Number(precio.value||0);
+    p1.value = calc(base, getPorcentaje("gPorc1"));
+    p2.value = calc(base, getPorcentaje("gPorc2"));
+  }
+
+  precio.addEventListener("input", recalcular);
+  gPorc1.addEventListener("input", recalcular);
+  gPorc2.addEventListener("input", recalcular);
+
+  // Formateo del % cuando el usuario sale del campo
+  gPorc1.addEventListener("blur", () => { formatPercentInput(gPorc1); recalcular(); });
+  gPorc2.addEventListener("blur", () => { formatPercentInput(gPorc2); recalcular(); });
+
+  // ======================
+  // Cargar listado
+  // ======================
+  async function cargar(){
+    const {data, error} = await sb.from("medicamentos").select("*").order("descripcion");
+    if (error) { alert("Error cargando: " + error.message); return; }
+
+    lista.innerHTML = (data || []).map(m=>`
+      <tr>
+        <td><b>${m.codigo || ""}</b><div class="muted">${m.referencia || ""}</div></td>
+        <td>${m.descripcion || ""}</td>
+        <td>${money(m.costo)}</td>
+        <td>${money(m.precio)}</td>
+        <td>${m.dias_plazo_1 ?? ""}d (${m.porc_plazo_1 ?? ""}%) → <b>${money(m.precio_10_dias)}</b></td>
+        <td>${m.dias_plazo_2 ?? ""}d (${m.porc_plazo_2 ?? ""}%) → <b>${money(m.precio_20_dias)}</b></td>
+        <td>
+          <div class="row-actions">
+            <button class="outline" onclick='editar(${JSON.stringify(m)})'>Editar</button>
+            <button class="red" onclick="eliminarFila(${m.id})">Eliminar</button>
+          </div>
+        </td>
+      </tr>`).join("");
+  }
+
+  // ======================
+  // Editar (carga + recalcula)
+  // ======================
+  function editar(m){
+    id.value = m.id;
+    referencia.value = m.referencia || "";
+    codigo.value = m.codigo || "";
+    descripcion.value = m.descripcion || "";
+    costo.value = m.costo ?? 0;
+    precio.value = m.precio ?? 0;
+
+    gDias1.value = m.dias_plazo_1 ?? 10;
+    gDias2.value = m.dias_plazo_2 ?? 20;
+    gPorc1.value = `${(m.porc_plazo_1 ?? 10)}%`;
+    gPorc2.value = `${(m.porc_plazo_2 ?? 20)}%`;
+
+    // Recalcula con el precio base y % actuales
+    recalcular();
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // ======================
+  // Guardar (bloquea código repetido)
+  // ======================
+  async function guardar(){
+    // normaliza % visual
+    formatPercentInput(gPorc1);
+    formatPercentInput(gPorc2);
+
+    const base = Number(precio.value);
+    const cod = (codigo.value || "").trim();
+    const desc = (descripcion.value || "").trim();
+
+    if (!cod) return alert("El código es obligatorio.");
+    if (!desc) return alert("La descripción es obligatoria.");
+
+    // Bloquear código repetido (cuando es nuevo)
+    if (!id.value) {
+      const exists = await sb.from("medicamentos").select("id").eq("codigo", cod).limit(1).maybeSingle();
+      if (exists?.data?.id) {
+        alert("Este código ya existe. No se puede repetir.");
+        return;
+      }
+    }
+
+    const payload = {
+      referencia: (referencia.value || "").trim() || null,
+      codigo: cod,
+      descripcion: desc,
+      costo: Number(costo.value || 0),
+      precio: base,
+
+      dias_plazo_1: Number(gDias1.value || 0),
+      porc_plazo_1: getPorcentaje("gPorc1"),
+      precio_10_dias: calc(base, getPorcentaje("gPorc1")),
+
+      dias_plazo_2: Number(gDias2.value || 0),
+      porc_plazo_2: getPorcentaje("gPorc2"),
+      precio_20_dias: calc(base, getPorcentaje("gPorc2"))
+    };
+
+    let r;
+    if (id.value) {
+      r = await sb.from("medicamentos").update(payload).eq("id", id.value);
+    } else {
+      r = await sb.from("medicamentos").insert(payload);
+    }
+
+    if (r.error) {
+      // Mensaje amigable si la BD tiene UNIQUE en codigo
+      const msg = r.error.message || "";
+      if (msg.toLowerCase().includes("duplicate") || msg.toLowerCase().includes("unique")) {
+        alert("Este código ya existe. No se puede repetir.");
+      } else {
+        alert("Error guardando: " + msg);
+      }
+      return;
+    }
+
+    limpiar();
+    cargar();
+  }
+
+  // ======================
+  // Eliminar (seleccionado)
+  // ======================
+  async function eliminarSeleccion(){
+    if (!id.value) return alert("Primero selecciona un producto con 'Editar'.");
+    if (!confirm("¿Eliminar este producto?")) return;
+
+    const { error } = await sb.from("medicamentos").delete().eq("id", id.value);
+    if (error) return alert("Error eliminando: " + error.message);
+
+    limpiar();
+    cargar();
+  }
+
+  // ======================
+  // Eliminar (desde la tabla)
+  // ======================
+  async function eliminarFila(medId){
+    if (!confirm("¿Eliminar este producto?")) return;
+
+    const { error } = await sb.from("medicamentos").delete().eq("id", medId);
+    if (error) return alert("Error eliminando: " + error.message);
+
+    // si estabas editando ese mismo, limpia
+    if (String(id.value) === String(medId)) limpiar();
+    cargar();
+  }
+
+  // ======================
+  // Actualizar todos los productos (mass update)
+  // ======================
+  async function actualizarTodos(){
+    if(!confirm("¿Actualizar TODOS los productos con los nuevos plazos y %?")) return;
+
+    // Asegurar formato %
+    formatPercentInput(gPorc1);
+    formatPercentInput(gPorc2);
+
+    const {data, error} = await sb.from("medicamentos").select("id, precio");
+    if (error) { alert("Error leyendo productos: " + error.message); return; }
+
+    const d1 = Number(gDias1.value || 0);
+    const d2 = Number(gDias2.value || 0);
+    const p1p = getPorcentaje("gPorc1");
+    const p2p = getPorcentaje("gPorc2");
+
+    for(const m of (data || [])){
+      const base = Number(m.precio || 0);
+      const { error: updErr } = await sb.from("medicamentos").update({
+        dias_plazo_1: d1,
+        porc_plazo_1: p1p,
+        precio_10_dias: calc(base, p1p),
+        dias_plazo_2: d2,
+        porc_plazo_2: p2p,
+        precio_20_dias: calc(base, p2p)
+      }).eq("id", m.id);
+
+      if (updErr) {
+        alert("Error actualizando ID " + m.id + ": " + updErr.message);
+        return;
+      }
+    }
+
+    alert("Precios actualizados.");
+    cargar();
+  }
+
+  // ======================
+  // Limpiar formulario
+  // ======================
+  function limpiar(){
+    id.value = "";
+    referencia.value = "";
+    codigo.value = "";
+    descripcion.value = "";
+    costo.value = "";
+    precio.value = "";
+    p1.value = "";
+    p2.value = "";
+    // no tocamos configuración global
+  }
+
+  // ======================
+  // Plantilla Excel
+  // ======================
+  function downloadTemplate(){
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet([{
+      codigo:"7701234567890",
+      referencia:"REF-001",
+      descripcion:"Ejemplo",
+      costo:1000,
+      precio:1500
+    }]);
+    XLSX.utils.book_append_sheet(wb, ws, "medicamentos");
+    XLSX.writeFile(wb, "plantilla_medicamentos.xlsx");
+  }
+
+  // ======================
+  // Importar Excel (upsert por codigo)
+  // ======================
+  async function importExcel(){
+    const file = excelFile.files[0];
+    if(!file) return alert("Selecciona un archivo Excel.");
+
+    // Asegurar formato %
+    formatPercentInput(gPorc1);
+    formatPercentInput(gPorc2);
+
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {type:"array"});
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval:"" });
+
+    let ok = 0, fail = 0;
+    const d1 = Number(gDias1.value || 0);
+    const d2 = Number(gDias2.value || 0);
+    const p1p = getPorcentaje("gPorc1");
+    const p2p = getPorcentaje("gPorc2");
+
+    for(const r of rows){
+      const cod = String(r.codigo || r.CODIGO || r.Codigo || "").trim();
+      if(!cod){ fail++; continue; }
+
+      const referenciaX = String(r.referencia || r.REFERENCIA || r.Referencia || "").trim() || null;
+      const descripcionX = String(r.descripcion || r.DESCRIPCION || r.Descripcion || "").trim() || null;
+      const costoX = Number(r.costo || r.COSTO || r.Costo || 0);
+      const base = Number(r.precio || r.PRECIO || r.Precio || 0);
+
+      const payload = {
+        codigo: cod,
+        referencia: referenciaX,
+        descripcion: descripcionX,
+        costo: Number.isFinite(costoX) ? costoX : 0,
+        precio: Number.isFinite(base) ? base : 0,
+
+        dias_plazo_1: d1,
+        porc_plazo_1: p1p,
+        precio_10_dias: calc(base, p1p),
+
+        dias_plazo_2: d2,
+        porc_plazo_2: p2p,
+        precio_20_dias: calc(base, p2p)
+      };
+
+      // Upsert por codigo (no duplica; actualiza)
+      const { error } = await sb.from("medicamentos").upsert(payload, { onConflict:"codigo" });
+      if (error) fail++;
+      else ok++;
+    }
+
+    excelMsg.textContent = `Importación finalizada. OK: ${ok}, Fallos: ${fail}`;
+    cargar();
+  }
+
+  // ======================
+  // Init
+  // ======================
+  (function init(){
+    formatPercentInput(gPorc1);
+    formatPercentInput(gPorc2);
+    recalcular();
+    cargar();
+  })();
 </script>
 
 </body>
 </html>
+
